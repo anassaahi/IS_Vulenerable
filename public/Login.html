@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vulnerable - Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3f37c9;
+      --accent: #4895ef;
+      --dark: #2b2d42;
+      --light: #f8f9fa;
+      --success: #4cc9f0;
+      --warning: #f8961e;
+      --danger: #f72585;
+      --gray: #6c757d;
+      --dark-bg: #0f172a;
+      --card-bg: #1e293b;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, var(--dark-bg), #1a2a42);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: var(--light);
+      padding: 20px;
+    }
+
+    .welcome-header {
+      text-align: center;
+      margin-bottom: 40px;
+      animation: fadeInDown 0.8s ease;
+    }
+
+    .welcome-title {
+      font-size: 3.5rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--danger));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 10px;
+      line-height: 1.2;
+    }
+
+    .welcome-subtitle {
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 300;
+    }
+
+    .auth-container {
+      background: var(--card-bg);
+      padding: 2.5rem;
+      border-radius: 16px;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 400px;
+      animation: fadeInUp 0.8s ease;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .auth-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        to bottom right,
+        rgba(255, 255, 255, 0.03),
+        rgba(255, 255, 255, 0.01)
+      );
+      transform: rotate(30deg);
+      z-index: -1;
+    }
+
+    .auth-container h2 {
+      margin-bottom: 1.8rem;
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: white;
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .auth-container h2::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--danger));
+      border-radius: 3px;
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-group i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.9rem 1rem 0.9rem 40px;
+      margin-bottom: 0.25rem;
+      border: none;
+      border-radius: 10px;
+      background: #334155;
+      color: white;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(72, 149, 239, 0.2);
+    }
+
+    button {
+      width: 100%;
+      padding: 1rem;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--primary));
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 1.5rem 0;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(67, 97, 238, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        to bottom right,
+        rgba(255, 255, 255, 0.2),
+        rgba(255, 255, 255, 0.1)
+      );
+      transform: rotate(30deg);
+      transition: all 0.3s ease;
+    }
+
+    button:hover::after {
+      left: 100%;
+    }
+
+    .toggle {
+      text-align: center;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 0.95rem;
+      transition: color 0.3s ease;
+    }
+
+    .toggle:hover {
+      color: var(--accent);
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .welcome-title {
+        font-size: 2.5rem;
+      }
+      
+      .auth-container {
+        padding: 1.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="welcome-header">
+    <h1 class="welcome-title">Welcome to Vulnerable!</h1>
+    <p class="welcome-subtitle">Secure your skills with our interactive platform</p>
+  </div>
+
+  <div class="auth-container">
+    <h2 id="formTitle">Login</h2>
+    <form id="authForm">
+      <div class="input-group">
+        <i class="fas fa-user"></i>
+        <input type="text" id="username" placeholder="Username" required />
+      </div>
+      <div class="input-group">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="password" placeholder="Password" required />
+      </div>
+      <button type="submit">
+        <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>
+        <span id="submitText">Login</span>
+      </button>
+    </form>
+    <div class="toggle" id="toggleForm">Don't have an account? <span>Sign up</span></div>
+  </div>
+
+  <script>
+    let isLogin = true;
+
+    const form = document.getElementById('authForm');
+    const toggle = document.getElementById('toggleForm');
+    const formTitle = document.getElementById('formTitle');
+    const submitText = document.getElementById('submitText');
+    const button = form.querySelector('button');
+
+    toggle.addEventListener('click', () => {
+      isLogin = !isLogin;
+      formTitle.textContent = isLogin ? 'Login' : 'Sign Up';
+      submitText.textContent = isLogin ? 'Login' : 'Sign Up';
+      toggle.innerHTML = isLogin 
+        ? "Don't have an account? <span>Sign up</span>" 
+        : "Already have an account? <span>Login</span>";
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      // Simulate API call (replace with actual fetch)
+      setTimeout(() => {
+        const success = Math.random() > 0.2; // 80% success rate for demo
+        
+        if (isLogin) {
+          if (success) {
+            // alert(`Login successful! Welcome back, ${username}`);
+            localStorage.setItem('username', username);
+            window.location.href = 'dashboard.html';
+          } else {
+            alert('Login failed: Invalid credentials');
+          }
+        } else {
+          if (success) {
+            // alert(`Signup successful! Welcome, ${username}`);
+            localStorage.setItem('username', username);
+            window.location.href = 'dashboard.html';
+          } else {
+            alert('Signup failed: Username may already exist');
+          }
+        }
+      }, 800);
+    });
+  </script>
+</body>
+</html>
