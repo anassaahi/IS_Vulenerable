@@ -1,3 +1,52 @@
+<?php
+require 'config.php';
+session_start();
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+$userId = $_SESSION['user_id'];
+$taskName = 'xss';
+
+// Get current progress
+try {
+    $stmt = $pdo->prepare("SELECT * FROM user_task_progress WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    $progress = [];
+}
+
+// Handle AJAX requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete'])) {
+    // Calculate marks
+    $baseScore = 50;
+    $deduction = 0;
+    
+    if ($progress[$taskName.'_solutionseen']) $deduction += 80;
+    if ($progress[$taskName.'_hintseen']) $deduction += 30;
+    
+    $marks = max($baseScore - ($baseScore * $deduction / 100), 0);
+    $marks = (int)round($marks);
+
+    try {
+        $stmt = $pdo->prepare("UPDATE user_task_progress 
+                             SET xss_complete = 1, 
+                                 xss_totalmark = ? 
+                             WHERE user_id = ?");
+        $stmt->execute([$marks, $userId]);
+        echo json_encode(['success' => true, 'message' => "Challenge completed! Score: $marks/50"]);
+        exit();
+    } catch (PDOException $e) {
+        error_log("Database error: " . $e->getMessage());
+        echo json_encode(['error' => "Error saving progress"]);
+        exit();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -296,126 +345,160 @@
   </div>
 
   <script>
-    const hintBtn = document.getElementById('hintBtn');
-    const solutionBtn = document.getElementById('solutionBtn');
-    const modal = document.getElementById('modal');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalText = document.getElementById('modalText');
-    const closeModal = document.getElementById('closeModal');
-    const commentForm = document.getElementById('commentForm');
-    const commentDisplay = document.getElementById('commentDisplay');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-
-    // Store if we've detected a successful XSS
-    let xssSuccessful = false;
-
-    // Override the native alert function to detect XSS success
-    const originalAlert = window.alert;
-    window.alert = function(message) {
-      if (message.includes("XSS Success")) {
-        xssSuccessful = true;
-        showSuccessMessage();
-      }
-      originalAlert.apply(window, arguments);
-    };
-
-    commentForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      xssSuccessful = false; // Reset for new attempt
+  document.addEventListener('DOMContentLoaded', function() {
+      const hintBtn = document.getElementById('hintBtn');
+      const solutionBtn = document.getElementById('solutionBtn');
+      const modal = document.getElementById('modal');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalText = document.getElementById('modalText');
+      const closeModal = document.getElementById('closeModal');
+      const commentForm = document.getElementById('commentForm');
+      const commentDisplay = document.getElementById('commentDisplay');
       
-      const name = document.getElementById('name').value;
-      const comment = document.getElementById('comment').value;
-      
-      // Vulnerable code - directly injecting user input without sanitization
-      commentDisplay.innerHTML = `
-        <div class="comment">
-          <strong>${name}</strong>
-          <p>${comment}</p>
-        </div>
-      `;
-      
-      // If the XSS didn't trigger immediately, check for other indicators
-      setTimeout(() => {
-        if (!xssSuccessful && containsXSSAttempt(comment)) {
-          checkForDelayedXSS();
-        }
-      }, 500);
-    });
+      let xssSuccessful = false;
+      const originalAlert = window.alert;
 
-    function containsXSSAttempt(comment) {
-      // Check for common XSS patterns
-      return /<script|onerror|onload|javascript:/i.test(comment);
-    }
+      // Override alert to detect XSS success
+      window.alert = function(message) {
+          if (message.includes("XSS Success")) {
+              xssSuccessful = true;
+              showSuccessMessage();
+          }
+          return originalAlert.apply(window, arguments);
+      };
 
-    function checkForDelayedXSS() {
-      // Check if any scripts are present in the comment display
-      const scripts = commentDisplay.getElementsByTagName('script');
-      for (let script of scripts) {
-        try {
-          // Try to execute the script content
-          new Function(script.text)();
-        } catch (e) {
-          console.log("XSS attempt failed:", e);
-        }
+      // Comment form submission
+      commentForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          xssSuccessful = false;
+          
+          const name = document.getElementById('name').value;
+          const comment = document.getElementById('comment').value;
+          
+          // Vulnerable code - directly injecting user input
+          commentDisplay.innerHTML = `
+              <div class="comment">
+                  <strong>${name}</strong>
+                  <p>${comment}</p>
+              </div>
+          `;
+          
+          // Check for delayed XSS
+          setTimeout(function() {
+              if (!xssSuccessful && containsXSSAttempt(comment)) {
+                  checkForDelayedXSS();
+              }
+          }, 500);
+      });
+
+      // Hint button
+      hintBtn.addEventListener('click', function() {
+          updateProgress('hint')
+              .then(function() {
+                  showModal("Hint 🧩", "Try injecting a script tag with JavaScript code. For example: <code>&lt;script&gt;alert('XSS Success!')&lt;/script&gt;</code>");
+              })
+              .catch(function(error) {
+                  console.error('Error:', error);
+              });
+      });
+
+      // Solution button
+      solutionBtn.addEventListener('click', function() {
+          updateProgress('solution')
+              .then(function() {
+                  showModal("Solution 💡", `Enter this as your comment:<br><br>
+                      <code>&lt;script&gt;alert('XSS Success!')&lt;/script&gt;</code>
+                      <br><br>
+                      Or this alternative:<br><br>
+                      <code>&lt;img src=x onerror=alert('XSS Success!')&gt;</code>`);
+              })
+              .catch(function(error) {
+                  console.error('Error:', error);
+              });
+      });
+
+      // Close modal
+      closeModal.addEventListener('click', function() {
+          modal.style.display = 'none';
+      });
+
+      window.onclick = function(event) {
+          if (event.target == modal) {
+              modal.style.display = 'none';
+          }
+      };
+
+      // Helper functions
+      function containsXSSAttempt(comment) {
+          return /<script|onerror|onload|javascript:/i.test(comment);
       }
-    }
 
-    function showSuccessMessage() {
-      const hintSeen = localStorage.getItem('xss_hint_seen');
-      const solutionSeen = localStorage.getItem('xss_solution_seen');
-
-      modalTitle.textContent = "XSS Successful! 🎯";
-
-      if (solutionSeen) {
-        modalText.textContent = "You have seen the solution. (0 points)";
-      } else if (hintSeen) {
-        modalText.textContent = "You have seen the hint. (5 points)";
-      } else {
-        modalText.textContent = "Congratulations! You completed it without help! (10 points)";
+      function checkForDelayedXSS() {
+          const scripts = commentDisplay.getElementsByTagName('script');
+          for (let script of scripts) {
+              try {
+                  new Function(script.text)();
+              } catch (e) {
+                  console.log("XSS attempt failed:", e);
+              }
+          }
       }
 
-      modal.style.display = 'flex';
-    }
+      function showSuccessMessage() {
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.innerHTML = `
+              <input type="hidden" name="complete" value="1">
+              <button type="submit" style="margin-top: 20px;">Claim Your Score</button>
+          `;
+          
+          form.addEventListener('submit', function(e) {
+              e.preventDefault();
+              fetch(window.location.href, {
+                  method: 'POST',
+                  body: new FormData(form)
+              })
+              .then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      modalText.innerHTML = data.message;
+                      form.remove();
+                  } else {
+                      modalText.innerHTML = data.error || "Error occurred";
+                  }
+              })
+              .catch(error => {
+                  modalText.innerHTML = "Failed to save progress";
+              });
+          });
 
-    hintBtn.addEventListener('click', () => {
-      modalTitle.textContent = "Hint 🧩";
-      modalText.innerHTML = "Try injecting a script tag with JavaScript code. For example: <code>&lt;script&gt;alert('XSS Success!')&lt;/script&gt;</code>";
-      modal.style.display = 'flex';
-      localStorage.setItem('xss_hint_seen', true);
-    });
-
-    solutionBtn.addEventListener('click', () => {
-      modalTitle.textContent = "Solution 💡";
-      modalText.innerHTML = `
-        Enter this as your comment:<br><br>
-        <code>&lt;script&gt;alert('XSS Success!')&lt;/script&gt;</code>
-        <br><br>
-        Or this alternative:<br><br>
-        <code>&lt;img src=x onerror=alert('XSS Success!')&gt;</code>
-      `;
-      modal.style.display = 'flex';
-      localStorage.setItem('xss_solution_seen', true);
-    });
-
-    closeModal.addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-
-    window.onclick = function(event) {
-      if (event.target == modal) {
-        modal.style.display = 'none';
+          modalTitle.textContent = "XSS Successful! 🎯";
+          modalText.innerHTML = "Calculating your score...";
+          modalText.appendChild(form);
+          modal.style.display = 'flex';
       }
-    }
 
-    prevBtn.addEventListener('click', () => {
-      alert('Previous button clicked - will navigate to SQL Injection challenge');
-    });
+      function showModal(title, content) {
+          modalTitle.textContent = title;
+          modalText.innerHTML = content;
+          modal.style.display = 'flex';
+      }
 
-    nextBtn.addEventListener('click', () => {
-      alert('Next button clicked - will navigate to the next challenge');
-    });
-</script> 
+      function updateProgress(type) {
+          return fetch('update_progress.php', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                  task: 'xss',
+                  type: type
+              })
+          })
+          .then(response => response.json());
+      }
+  });
+  </script>
 
 </body>
 </html>

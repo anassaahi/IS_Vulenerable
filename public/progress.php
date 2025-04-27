@@ -1,3 +1,65 @@
+<?php
+require 'config.php';
+session_start();
+
+// Redirect to login if not authenticated
+if (!isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+// Get user progress data
+try {
+    $stmt = $pdo->prepare("SELECT * FROM user_task_progress WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+} catch (PDOException $e) {
+    // Handle database error
+    error_log("Database error: " . $e->getMessage());
+    $progress = [];
+}
+
+// Task configuration
+$tasks = [
+    'sqlinjection' => [
+        'title' => 'SQL Injection',
+        'icon' => 'fa-database',
+        'page' => 'sqlinjection.php',
+        'color' => 'sql'
+    ],
+    'xss' => [
+        'title' => 'Cross-Site Scripting',
+        'icon' => 'fa-code',
+        'page' => 'xss.php',
+        'color' => 'xss'
+    ],
+    'csrf' => [
+        'title' => 'CSRF',
+        'icon' => 'fa-exchange-alt',
+        'page' => 'csrf.php',
+        'color' => 'csrf'
+    ],
+    'openredirect' => [
+        'title' => 'Open Redirect',
+        'icon' => 'fa-external-link-alt',
+        'page' => 'openredirect.php',
+        'color' => 'redirect'
+    ],
+    'fileupload' => [
+        'title' => 'File Upload',
+        'icon' => 'fa-file-upload',
+        'page' => 'fileupload.php',
+        'color' => 'upload'
+    ],
+    'ssrf' => [
+        'title' => 'SSRF',
+        'icon' => 'fa-server',
+        'page' => 'ssrf.php',
+        'color' => 'ssrf'
+    ]
+];
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -275,15 +337,11 @@
     </div>
     
     <div class="sidebar-menu">
-      <a href="dashboard.html">
+      <a href="dashboard.php">
         <i class="fas fa-arrow-left"></i>
         Back to Dashboard
       </a>
-      <a href="#" class="active">
-        <i class="fas fa-lock"></i>
-        Challenges
-      </a>
-      <a href="#">
+      <a href="leaderboard.php">
         <i class="fas fa-trophy"></i>
         Leaderboard
       </a>
@@ -294,10 +352,10 @@
     </div>
   </div>
   
-  <button class="logout-btn" onclick="logout()">
+  <a href="logout.php" class="logout-btn">
     <i class="fas fa-sign-out-alt"></i>
     Logout
-  </button>
+  </a>
 </div>
 
 <div class="main">
@@ -307,100 +365,40 @@
   </div>
   
   <div class="challenges-grid">
-    <!-- SQL Injection Challenge -->
-    <div class="challenge-card challenge-sql" onclick="navigateTo('sql-injection.html')">
+    <?php foreach ($tasks as $taskKey => $taskConfig): 
+        $completed = $progress[$taskKey.'_complete'] ?? false;
+        $marks = $progress[$taskKey.'_totalmark'] ?? 0;
+    ?>
+    <div class="challenge-card challenge-<?php echo $taskConfig['color']; ?>" 
+         onclick="navigateTo('<?php echo $taskConfig['page']; ?>')">
       <div class="challenge-icon">
-        <i class="fas fa-database"></i>
+        <i class="fas <?php echo $taskConfig['icon']; ?>"></i>
       </div>
-      <h3 class="challenge-title">SQL Injection</h3>
-      <p class="challenge-desc">Exploit database vulnerabilities by injecting malicious SQL queries</p>
-      <div class="challenge-progress">
-        <div class="progress-bar" style="width: 65%"></div>
+      <h3 class="challenge-title"><?php echo $taskConfig['title']; ?></h3>
+      <p class="challenge-desc"><?php // Keep existing description text ?></p>
+      
+      <div class="challenge-status">
+        <?php if($completed): ?>
+          <span style="color: var(--success);">✓ Completed</span><br>
+          Marks: <?php echo $marks; ?>/50
+        <?php else: ?>
+          <span style="color: var(--warning);">◌ Not Completed</span><br>
+          Current Marks: <?php echo $marks; ?>/50
+        <?php endif; ?>
       </div>
-      <div class="challenge-status">65% completed</div>
+      
+      <?php if($taskKey === 'xss' && !$completed): ?>
+        <div class="challenge-status" style="color: var(--danger); margin-top: 10px;">
+          New challenge!
+        </div>
+      <?php endif; ?>
     </div>
-    
-    <!-- XSS Challenge -->
-    <div class="challenge-card challenge-xss new-challenge" onclick="navigateTo('xss.html')">
-      <div class="challenge-icon">
-        <i class="fas fa-code"></i>
-      </div>
-      <h3 class="challenge-title">Cross-Site Scripting</h3>
-      <p class="challenge-desc">Inject client-side scripts to bypass access controls</p>
-      <div class="challenge-progress">
-        <div class="progress-bar" style="width: 30%"></div>
-      </div>
-      <div class="challenge-status">New challenge!</div>
-    </div>
-    
-    <!-- CSRF Challenge -->
-    <div class="challenge-card challenge-csrf" onclick="navigateTo('csrf.html')">
-      <div class="challenge-icon">
-        <i class="fas fa-exchange-alt"></i>
-      </div>
-      <h3 class="challenge-title">CSRF</h3>
-      <p class="challenge-desc">Execute unauthorized commands from authenticated users</p>
-      <div class="challenge-progress">
-        <div class="progress-bar" style="width: 45%"></div>
-      </div>
-      <div class="challenge-status">45% completed</div>
-    </div>
-    
-    <!-- Open Redirect Challenge -->
-    <div class="challenge-card challenge-redirect" onclick="navigateTo('open-redirect.html')">
-      <div class="challenge-icon">
-        <i class="fas fa-external-link-alt"></i>
-      </div>
-      <h3 class="challenge-title">Open Redirect</h3>
-      <p class="challenge-desc">Manipulate URLs to redirect users to malicious sites</p>
-      <div class="challenge-progress">
-        <div class="progress-bar" style="width: 20%"></div>
-      </div>
-      <div class="challenge-status">Just started</div>
-    </div>
-    
-    <!-- File Upload Challenge -->
-    <div class="challenge-card challenge-upload" onclick="navigateTo('file-upload.html')">
-      <div class="challenge-icon">
-        <i class="fas fa-file-upload"></i>
-      </div>
-      <h3 class="challenge-title">File Upload</h3>
-      <p class="challenge-desc">Upload malicious files to gain server access</p>
-      <div class="challenge-progress">
-        <div class="progress-bar" style="width: 80%"></div>
-      </div>
-      <div class="challenge-status">Almost mastered!</div>
-    </div>
-    
-    <!-- SSRF Challenge -->
-    <div class="challenge-card challenge-ssrf" onclick="navigateTo('ssrf.html')">
-      <div class="challenge-icon">
-        <i class="fas fa-server"></i>
-      </div>
-      <h3 class="challenge-title">SSRF</h3>
-      <p class="challenge-desc">Exploit server-side requests to access internal resources</p>
-      <div class="challenge-progress">
-        <div class="progress-bar" style="width: 10%"></div>
-      </div>
-      <div class="challenge-status">Beginner level</div>
-    </div>
+    <?php endforeach; ?>
   </div>
 </div>
-
 <script>
-  // Check if user is logged in
-  const username = localStorage.getItem('username');
-  if (!username) {
-    window.location.href = 'login.html';
-  }
-
   function navigateTo(page) {
     window.location.href = page;
-  }
-
-  function logout() {
-    localStorage.removeItem('username');
-    window.location.href = 'login.html';
   }
 
   // Add animation on load
@@ -423,6 +421,42 @@
     document.head.appendChild(style);
   });
 </script>
+<!-- <script>
+  // Check if user is logged in
+  // const username = localStorage.getItem('username');
+  // if (!username) {
+  //   window.location.href = 'login.html';
+  // }
+
+  // function navigateTo(page) {
+  //   window.location.href = page;
+  // }
+
+  // function logout() {
+  //   localStorage.removeItem('username');
+  //   window.location.href = 'login.html';
+  // }
+
+  // Add animation on load
+  document.addEventListener('DOMContentLoaded', () => {
+    const cards = document.querySelectorAll('.challenge-card');
+    cards.forEach((card, index) => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(20px)';
+      card.style.animation = `fadeInUp 0.5s ease-out ${index * 0.1}s forwards`;
+    });
+    
+    // Add styles for animations
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  });
+</script> -->
 
 </body>
 </html>

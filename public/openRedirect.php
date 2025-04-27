@@ -1,3 +1,53 @@
+<?php
+require 'config.php';
+session_start();
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+$userId = $_SESSION['user_id'];
+$taskName = 'openredirect';
+
+// Get current progress
+try {
+    $stmt = $pdo->prepare("SELECT * FROM user_task_progress WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    $progress = [];
+}
+
+// Handle AJAX requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['complete'])) {
+        // Calculate marks
+        $baseScore = 50;
+        $deduction = 0;
+        
+        if ($progress[$taskName.'_solutionseen']) $deduction += 80;
+        if ($progress[$taskName.'_hintseen']) $deduction += 30;
+        
+        $marks = max($baseScore - ($baseScore * $deduction / 100), 0);
+        $marks = (int)round($marks);
+
+        try {
+            $stmt = $pdo->prepare("UPDATE user_task_progress 
+                                 SET openredirect_complete = 1, 
+                                     openredirect_totalmark = ? 
+                                 WHERE user_id = ?");
+            $stmt->execute([$marks, $userId]);
+            echo json_encode(['success' => true, 'message' => "Challenge completed! Score: $marks/50"]);
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            echo json_encode(['error' => "Error saving progress"]);
+        }
+        exit();
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -288,6 +338,7 @@
   </div>
 
   <script>
+document.addEventListener('DOMContentLoaded', function() {
     const hintBtn = document.getElementById('hintBtn');
     const solutionBtn = document.getElementById('solutionBtn');
     const modal = document.getElementById('modal');
@@ -298,77 +349,150 @@
     const redirectResult = document.getElementById('redirectResult');
     const redirectUrl = document.getElementById('redirectUrl');
 
-    // Simulate open redirect vulnerability
-    redirectForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const url = redirectUrl.value;
-      
-      // Vulnerable redirect link generation
-      const redirectLink = `${window.location.origin}/redirect?url=${encodeURIComponent(url)}`;
-      redirectResult.innerHTML = `<a href="${redirectLink}" target="_blank">${redirectLink}</a>`;
-      
-      // Check if this is an attack demonstration
-      if (url.includes('evil.com')) {
+    // Check if we're coming back from a successful redirect
+    if (sessionStorage.getItem('redirect_success')) {
         showSuccessMessage();
-      }
-    });
+        sessionStorage.removeItem('redirect_success');
+    }
 
-    // Handle actual redirect if URL has redirect parameter
+    // Check for redirect parameter in URL
     const params = new URLSearchParams(window.location.search);
     if (params.has('url')) {
-      // In a real app, this would be server-side redirect
-      setTimeout(() => {
-        window.location.href = params.get('url');
-      }, 1500);
-      redirectResult.innerHTML = `Redirecting to: ${params.get('url')}`;
+        const targetUrl = params.get('url');
+        redirectResult.innerHTML = `Redirecting to: ${targetUrl}`;
+        
+        // Check if this is a successful attack (redirecting to evil.com)
+        if (targetUrl.includes('evil.com')) {
+            // Store success in session before redirecting
+            sessionStorage.setItem('redirect_success', 'true');
+            
+            // Actually perform the redirect after a short delay
+            setTimeout(() => {
+                window.location.href = targetUrl;
+            }, 1500);
+            return;
+        }
+        
+        // For non-evil.com URLs, just redirect immediately
+        setTimeout(() => {
+            window.location.href = targetUrl;
+        }, 1500);
     }
 
-    function showSuccessMessage() {
-      const hintSeen = localStorage.getItem('redirect_hint_seen');
-      const solutionSeen = localStorage.getItem('redirect_solution_seen');
+    // Form submission
+    redirectForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const url = redirectUrl.value;
+        
+        // Generate vulnerable redirect link
+        const redirectLink = `${window.location.origin}/openredirect.php?url=${encodeURIComponent(url)}`;
+        redirectResult.innerHTML = `<a href="${redirectLink}" target="_blank">${redirectLink}</a>`;
+        
+        // If user entered evil.com directly, consider it a success
+        if (url.includes('evil.com')) {
+            showSuccessMessage();
+        }
+    });
 
-      modalTitle.textContent = "Open Redirect Successful! 🎯";
+      // Hint button
+      hintBtn.addEventListener('click', function() {
+          updateProgress('hint')
+              .then(function() {
+                  showModal("Hint 🧩", "Try creating a URL that includes a parameter like ?url=http://evil.com");
+              })
+              .catch(function(error) {
+                  console.error('Error:', error);
+              });
+      });
 
-      if (solutionSeen) {
-        modalText.textContent = "You have seen the solution. (0 points)";
-      } else if (hintSeen) {
-        modalText.textContent = "You have seen the hint. (5 points)";
-      } else {
-        modalText.textContent = "Congratulations! You completed it without help! (10 points)";
+      // Solution button
+      solutionBtn.addEventListener('click', function() {
+          updateProgress('solution')
+              .then(function() {
+                  showModal("Solution 💡", `
+                      Enter this URL in the input field:<br><br>
+                      <code>https://evil.com</code><br><br>
+                      Then use the generated link to redirect victims.<br><br>
+                      Or craft this URL directly:<br>
+                      <code>${window.location.origin}/openredirect.php?url=https://evil.com</code>
+                  `);
+              })
+              .catch(function(error) {
+                  console.error('Error:', error);
+              });
+      });
+
+      // Close modal
+      closeModal.addEventListener('click', function() {
+          modal.style.display = 'none';
+      });
+
+      window.onclick = function(event) {
+          if (event.target == modal) {
+              modal.style.display = 'none';
+          }
+      };
+
+      // Helper functions
+      function showSuccessMessage() {
+        if (!<?= $progress['openredirect_complete'] ? 'true' : 'false' ?>) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="complete" value="1">
+                <button type="submit" style="margin-top: 20px;">Claim Your Score</button>
+            `;
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: new FormData(form)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        modalTitle.textContent = "Open Redirect Successful! 🎯";
+                        modalText.innerHTML = data.message;
+                        form.remove();
+                    } else {
+                        modalText.innerHTML = data.error || "Error occurred";
+                    }
+                })
+                .catch(error => {
+                    modalText.innerHTML = "Failed to save progress";
+                });
+            });
+
+            modalTitle.textContent = "Open Redirect Successful! 🎯";
+            modalText.innerHTML = "Calculating your score...";
+            modalText.appendChild(form);
+            modal.style.display = 'flex';
+        } else {
+            showModal("Already Completed", "You've already completed this challenge!");
+        }
+    }
+
+      function showModal(title, content) {
+          modalTitle.textContent = title;
+          modalText.innerHTML = content;
+          modal.style.display = 'flex';
       }
 
-      modal.style.display = 'flex';
-    }
-
-    hintBtn.addEventListener('click', () => {
-      modalTitle.textContent = "Hint 🧩";
-      modalText.innerHTML = "Try creating a URL that includes a parameter like ?url=http://evil.com";
-      modal.style.display = 'flex';
-      localStorage.setItem('redirect_hint_seen', true);
-    });
-
-    solutionBtn.addEventListener('click', () => {
-      modalTitle.textContent = "Solution 💡";
-      modalText.innerHTML = `
-        Enter this URL in the input field:<br><br>
-        <code>https://evil.com</code><br><br>
-        Then use the generated link to redirect victims.<br><br>
-        Or craft this URL directly:<br>
-        <code>${window.location.origin}/open-redirect.html?url=https://evil.com</code>
-      `;
-      modal.style.display = 'flex';
-      localStorage.setItem('redirect_solution_seen', true);
-    });
-
-    closeModal.addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-
-    window.onclick = function(event) {
-      if (event.target == modal) {
-        modal.style.display = 'none';
+      function updateProgress(type) {
+          return fetch('update_progress.php', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                  task: 'openredirect',
+                  type: type
+              })
+          })
+          .then(response => response.json());
       }
-    }
+  });
   </script>
 </body>
 </html>
