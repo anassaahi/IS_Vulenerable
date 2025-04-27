@@ -318,12 +318,12 @@
 
 <script>
   // Check if user is logged in
-  const username = localStorage.getItem('username');
-  if (!username) {
-    window.location.href = 'login.html';
-  } else {
-    document.getElementById('userInfo').innerText = username;
-  }
+  // const username = localStorage.getItem('username');
+  // if (!username) {
+  //   window.location.href = 'login.html';
+  // } else {
+  //   document.getElementById('userInfo').innerText = username;
+  // }
 
   function startTest() {
   // Change this to use your server's URL
@@ -334,7 +334,7 @@
     localStorage.removeItem('username');
     
     // Redirect to login page
-    window.location.href = 'login.html';
+    window.location.href = 'index.php';
   }
 </script>
 
