@@ -243,8 +243,12 @@
   </div>
 
   <div class="navigation">
-    <a href="#" class="nav-btn" id="prevBtn"><i class="fas fa-arrow-left"></i> Previous</a>
-    <a href="#" class="nav-btn" id="nextBtn">Next <i class="fas fa-arrow-right"></i></a>
+    <a class="nav-btn" href="dashboard.php">
+      <i class="fas fa-home"></i> Dashboard
+    </a>
+    <a class="nav-btn" href="logout.php">
+      <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
   </div>
 
   <!-- Modal -->

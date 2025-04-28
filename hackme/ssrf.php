@@ -326,12 +326,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </div>
 
   <div class="navigation">
-    <button class="nav-btn" id="prevBtn" onclick="window.location.href='open-redirect.html'">
-      <i class="fas fa-arrow-left"></i> Open Redirect Challenge
-    </button>
-    <button class="nav-btn" id="nextBtn" onclick="window.location.href='clickjacking.html'">
-      Clickjacking Challenge <i class="fas fa-arrow-right"></i>
-    </button>
+    <a class="nav-btn" href="dashboard.php">
+      <i class="fas fa-home"></i> Dashboard
+    </a>
+    <a class="nav-btn" href="logout.php">
+      <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
   </div>
 
   <!-- Modal -->
@@ -342,7 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <p id="modalText"></p>
     </div>
   </div>
-
+  
   <script>
   document.addEventListener('DOMContentLoaded', function() {
       const hintBtn = document.getElementById('hintBtn');

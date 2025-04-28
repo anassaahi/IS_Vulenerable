@@ -359,14 +359,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete'])) {
   </div>
 
   <div class="navigation">
-    <button class="nav-btn" id="prevBtn">
-      <i class="fas fa-arrow-left"></i> Previous Challenge
-    </button>
-    <button class="nav-btn" id="nextBtn">
-      Next Challenge <i class="fas fa-arrow-right"></i>
-    </button>
+    <a class="nav-btn" href="dashboard.php">
+      <i class="fas fa-home"></i> Dashboard
+    </a>
+    <a class="nav-btn" href="logout.php">
+      <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
   </div>
-
   <!-- Modal -->
   <div class="modal" id="modal">
     <div class="modal-content">

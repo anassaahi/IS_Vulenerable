@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Password cannot be empty");
             }
 
-            if (strlen($password) < 4) {
+            if (strlen($password) < 8) {
                 throw new Exception("Password must be at least 4 characters");
             }
 
@@ -358,7 +358,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
   <div class="welcome-header">
-    <h1 class="welcome-title">Welcome to Vulnerable!</h1>
+    <h1 class="welcome-title">Welcome to Hack Me!</h1>
     <p class="welcome-subtitle">Secure your skills with our interactive platform</p>
   </div>
 
